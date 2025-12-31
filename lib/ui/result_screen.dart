@@ -38,7 +38,7 @@ class ResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rate = totalAmount / totalUnits;
+    final perUnitRate = totalAmount / totalUnits;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bill Result')),
@@ -48,7 +48,7 @@ class ResultScreen extends StatelessWidget {
           _section('Bill Summary'),
           _row('Total Units', totalUnits),
           _row('Total Amount', totalAmount, currency: true),
-          _row('Per Unit Rate', rate, currency: true),
+          _row('Per Unit Rate', perUnitRate, currency: true),
           _row('Total Persons', _totalPersons().toDouble()),
           _row('Water Units / Person', _waterPerPerson()),
 
@@ -101,11 +101,23 @@ class ResultScreen extends StatelessWidget {
               final file = await PdfService.generateBillPdf(
                 billStartDate: billPreviousDate,
                 billEndDate: billCurrentDate,
+
+                // summary (already computed)
                 totalUnits: totalUnits,
                 totalAmount: totalAmount,
+                perUnitRate: perUnitRate,
+                totalPersons: _totalPersons(),
+                waterUnitsPerPerson: _waterPerPerson(),
+
+                // final results
                 units: units,
                 amounts: amounts,
                 persons: persons,
+
+                // electricity breakup (display only)
+                roomAElec: roomAElec,
+                roomBElec: roomBElec,
+                roomCElec: roomCElec,
               );
 
 
