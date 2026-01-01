@@ -10,29 +10,23 @@ class PdfService {
   static Future<File> generateBillPdf({
     required DateTime billStartDate,
     required DateTime billEndDate,
-
-    // summary (already calculated)
     required double totalUnits,
     required double totalAmount,
-    required double perUnitRate,
-    required int totalPersons,
-    required double waterUnitsPerPerson,
-
-    // final results
     required Map<String, double> units,
     required Map<String, double> amounts,
     required Map<String, int> persons,
-
-    // electricity breakup
+    required double waterUnits,
     required double roomAElec,
     required double roomBElec,
     required double roomCElec,
   }) async {
     final pdf = pw.Document();
 
-    final period = _formatPeriod(
-      formatBillMonth(billStartDate, billEndDate),
-    );
+    final totalPersons =
+    persons.values.fold<int>(0, (s, v) => s + v);
+    final waterPerPerson =
+    totalPersons == 0 ? 0.0 : waterUnits / totalPersons;
+    final rate = totalAmount / totalUnits;
 
     pdf.addPage(
       pw.Page(
@@ -41,6 +35,7 @@ class PdfService {
         build: (_) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            // ================= HEADER =================
             pw.Text(
               'ELECTRICITY BILL SPLIT',
               style: pw.TextStyle(
@@ -48,57 +43,54 @@ class PdfService {
                 fontWeight: pw.FontWeight.bold,
               ),
             ),
-            pw.SizedBox(height: 6),
-            pw.Text('Billing Period: $period'),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              'Billing Period: ${formatBillMonth(billStartDate, billEndDate)}',
+              style: pw.TextStyle(color: PdfColors.grey700),
+            ),
             pw.Divider(),
 
             // ================= BILL SUMMARY =================
             _section('Bill Summary'),
-            _row('Total Units', totalUnits),
-            _row('Total Amount', totalAmount),
-            _row('Per Unit Rate', perUnitRate),
-            _row('Total Persons', totalPersons.toDouble()),
-            _row('Water Units / Person', waterUnitsPerPerson),
+            _summaryRow('Total Units', totalUnits),
+            _summaryRow('Total Amount', totalAmount),
+            _summaryRow('Per Unit Rate', rate),
+            _summaryRow('Total Persons', totalPersons.toDouble()),
+            _summaryRow('Water Units / Person', waterPerPerson),
 
-            pw.SizedBox(height: 14),
+            pw.SizedBox(height: 16),
 
-            _section('Room-wise Calculation'),
-            _roomBlock(
+            // ================= ROOM CARDS =================
+            _roomCard(
               name: 'Room A',
-              persons: persons['A'] ?? 0,
+              persons: persons['A']!,
               elec: roomAElec,
+              waterPerPerson: waterPerPerson,
               total: units['A']!,
               amount: amounts['A']!,
             ),
-            _roomBlock(
+
+            _roomCard(
               name: 'Room B',
-              persons: persons['B'] ?? 0,
+              persons: persons['B']!,
               elec: roomBElec,
+              waterPerPerson: waterPerPerson,
               total: units['B']!,
               amount: amounts['B']!,
             ),
-            _roomBlock(
+
+            _roomCard(
               name: 'Room C (Derived)',
-              persons: persons['C'] ?? 0,
+              persons: persons['C']!,
               elec: roomCElec,
+              waterPerPerson: waterPerPerson,
               total: units['C']!,
               amount: amounts['C']!,
               derived: true,
             ),
 
-            pw.SizedBox(height: 12),
-
-            _section('Verification'),
-            _row(
-              'Units Check',
-              units.values.fold(0.0, (s, v) => s + v),
-            ),
-            _row(
-              'Amount Check',
-              amounts.values.fold(0.0, (s, v) => s + v),
-            ),
-
             pw.Spacer(),
+
             pw.Align(
               alignment: pw.Alignment.centerRight,
               child: pw.Text(
@@ -116,19 +108,107 @@ class PdfService {
 
     final dir = await getApplicationDocumentsDirectory();
     final file =
-    File('${dir.path}/Electricity_Bill_$period.pdf');
+    File('${dir.path}/Electricity_Bill_${billEndDate.year}.pdf');
 
     await file.writeAsBytes(await pdf.save());
     return file;
   }
 
-  // ---------------- helpers ----------------
+  // ================= UI HELPERS =================
 
   static pw.Widget _section(String title) => pw.Padding(
     padding: const pw.EdgeInsets.only(bottom: 6),
-    child: pw.Text(title,
-        style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+    child: pw.Text(
+      title,
+      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+    ),
   );
+
+  static pw.Widget _summaryRow(
+      String label,
+      double value) {
+    final text = value.toStringAsFixed(2);
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label),
+          pw.Text(
+            text,
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _roomCard({
+    required String name,
+    required int persons,
+    required double elec,
+    required double waterPerPerson,
+    required double total,
+    required double amount,
+    bool derived = false,
+  }) {
+    final water = persons * waterPerPerson;
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(
+          color: derived ? PdfColors.orange : PdfColors.grey400,
+          width: derived ? 1.5 : 1,
+        ),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            '$name (Persons: $persons)',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+
+          pw.SizedBox(height: 6),
+
+          _row('Electricity Units', elec),
+          _row(
+            'Water Units',
+            water,
+          ),
+          pw.Text(
+            '(${waterPerPerson.toStringAsFixed(2)} × $persons)',
+            style: pw.TextStyle(
+              fontSize: 9,
+              color: PdfColors.grey700,
+            ),
+          ),
+
+          pw.Divider(),
+
+          _row('Total Units', total),
+          _row('Amount', amount,),
+
+          if (derived)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 6),
+              child: pw.Text(
+                'Electricity derived from common meter:\n'
+                    'Total - (Room A + Room B + Water)',
+                style: pw.TextStyle(
+                  fontSize: 9,
+                  color: PdfColors.grey700,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   static pw.Widget _row(
       String label,
@@ -145,60 +225,6 @@ class PdfService {
         ],
       ),
     );
-  }
-
-  static pw.Widget _roomBlock({
-    required String name,
-    required int persons,
-    required double elec,
-    required double total,
-    required double amount,
-    bool derived = false,
-  }) {
-    final water = total - elec;
-
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 10),
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
-        borderRadius: pw.BorderRadius.circular(4),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            '$name (Persons: $persons)',
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 6),
-
-          _row('Electricity Units', elec),
-          _row('Water Units', water),
-          pw.Divider(),
-
-          _row('Total Units', total),
-          _row('Amount', amount),
-
-          if (derived)
-            pw.Text(
-              'Electricity derived from common meter:\n'
-                  'Total - (Room A + Room B + Water)',
-              style: pw.TextStyle(
-                fontSize: 9,
-                color: PdfColors.grey700,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  static String _formatPeriod(String period) {
-    return period
-        .replaceAll('–', ' to ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 
   static String _today() {

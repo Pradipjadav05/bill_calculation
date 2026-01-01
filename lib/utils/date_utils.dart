@@ -11,7 +11,7 @@ String formatBillMonth(DateTime start, DateTime end) {
     if (start.month == end.month) {
       return '$startMonth ${start.year}';
     }
-    return '$startMonth–$endMonth ${start.year}';
+    return '$startMonth to $endMonth ${start.year}';
   }
 
   return '$startMonth ${start.year} to $endMonth ${end.year}';

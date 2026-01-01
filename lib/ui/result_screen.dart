@@ -38,7 +38,7 @@ class ResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final perUnitRate = totalAmount / totalUnits;
+    final rate = totalAmount / totalUnits;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bill Result')),
@@ -48,7 +48,7 @@ class ResultScreen extends StatelessWidget {
           _section('Bill Summary'),
           _row('Total Units', totalUnits),
           _row('Total Amount', totalAmount, currency: true),
-          _row('Per Unit Rate', perUnitRate, currency: true),
+          _row('Per Unit Rate', rate, currency: true),
           _row('Total Persons', _totalPersons().toDouble()),
           _row('Water Units / Person', _waterPerPerson()),
 
@@ -79,19 +79,6 @@ class ResultScreen extends StatelessWidget {
             derived: true,
           ),
 
-          _section('Verification'),
-          _row(
-            'Units Check',
-            units.values.fold(0.0, (s, v) => s + v),
-            ok: true,
-          ),
-          _row(
-            'Amount Check',
-            amounts.values.fold(0.0, (s, v) => s + v),
-            currency: true,
-            ok: true,
-          ),
-
           const SizedBox(height: 24),
 
           ElevatedButton.icon(
@@ -101,20 +88,12 @@ class ResultScreen extends StatelessWidget {
               final file = await PdfService.generateBillPdf(
                 billStartDate: billPreviousDate,
                 billEndDate: billCurrentDate,
-
-                // summary (already computed)
                 totalUnits: totalUnits,
                 totalAmount: totalAmount,
-                perUnitRate: perUnitRate,
-                totalPersons: _totalPersons(),
-                waterUnitsPerPerson: _waterPerPerson(),
-
-                // final results
                 units: units,
                 amounts: amounts,
                 persons: persons,
-
-                // electricity breakup (display only)
+                waterUnits: waterUnits,
                 roomAElec: roomAElec,
                 roomBElec: roomBElec,
                 roomCElec: roomCElec,
@@ -148,31 +127,14 @@ class ResultScreen extends StatelessWidget {
         const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
   );
 
-  Widget _row(
-      String label,
-      double value, {
-        bool currency = false,
-        bool ok = false,
-      }) {
+  Widget _row(String label, double value,
+      {bool currency = false}) {
     final text = currency
         ? '₹${value.toStringAsFixed(2)}'
         : value.toStringAsFixed(2);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text(
-            text,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: ok ? Colors.green : Colors.black,
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(label), Text(text)],
     );
   }
 
@@ -184,7 +146,7 @@ class ResultScreen extends StatelessWidget {
     required double amount,
     bool derived = false,
   }) {
-    final water = total - elec;
+    final water = persons * _waterPerPerson();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),

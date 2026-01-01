@@ -10,55 +10,68 @@ class BillCalculator {
     required int roomCPersons,
     required WaterMeter water,
   }) {
-    final billDays =
-        bill.currentDate.difference(bill.previousDate).inDays;
-
-    // -------- Room A --------
+    // ---------- ROOM A ----------
+    final aRaw = roomA.units;
     final aMeterDays =
         roomA.readingDate.difference(bill.previousDate).inDays;
-    final aDaily =
-        roomA.units / aMeterDays;
-    final aCorrected =
-        roomA.units - (aDaily * (aMeterDays - billDays));
+    final aDaily = aRaw / aMeterDays;
+    final aExtraDays =
+        roomA.readingDate.difference(bill.currentDate).inDays;
+    final aCorrected = aRaw - (aDaily * aExtraDays);
 
-    // -------- Room B --------
+    // ---------- ROOM B ----------
+    final bRaw = roomB.units;
     final bMeterDays =
         roomB.readingDate.difference(bill.previousDate).inDays;
-    final bDaily =
-        roomB.units / bMeterDays;
-    final bCorrected =
-        roomB.units - (bDaily * (bMeterDays - billDays));
+    final bDaily = bRaw / bMeterDays;
+    final bExtraDays =
+        roomB.readingDate.difference(bill.currentDate).inDays;
+    final bCorrected = bRaw - (bDaily * bExtraDays);
 
-    // -------- Water --------
+    // ---------- WATER ----------
+    final wRaw = water.units;
     final wMeterDays =
         water.readingDate.difference(bill.previousDate).inDays;
-    final wDaily =
-        water.units / wMeterDays;
-    final wCorrected =
-        water.units - (wDaily * (wMeterDays - billDays));
+    final wDaily = wRaw / wMeterDays;
+    final wExtraDays =
+        water.readingDate.difference(bill.currentDate).inDays;
+    final wCorrected = wRaw - (wDaily * wExtraDays);
 
-    // -------- Room C (Derived) --------
+    // ---------- ROOM C ----------
     final cCorrected =
         bill.totalUnits - (aCorrected + bCorrected + wCorrected);
 
-    // -------- Water distribution --------
     final totalPersons =
         roomA.persons + roomB.persons + roomCPersons;
     final waterPerPerson =
-    totalPersons == 0 ? 0.0 : wCorrected / totalPersons;
+        wCorrected / totalPersons;
 
     return {
+      // FINAL totals
       'A': aCorrected + roomA.persons * waterPerPerson,
       'B': bCorrected + roomB.persons * waterPerPerson,
       'C': cCorrected + roomCPersons * waterPerPerson,
+
+      // electricity breakup (IMPORTANT)
+      'A_E': aCorrected,
+      'B_E': bCorrected,
+      'C_E': cCorrected,
+
+      // water
+      'W_PP': waterPerPerson,
     };
   }
+
 
   static Map<String, double> calculateAmount(
       Map<String, double> units,
       BillInfo bill,
       ) {
-    final rate = bill.totalAmount / bill.totalUnits;
-    return units.map((k, v) => MapEntry(k, v * rate));
+    return units.map(
+          (k, v) => MapEntry(
+        k,
+        (v / bill.totalUnits) * bill.totalAmount,
+      ),
+    );
   }
 }

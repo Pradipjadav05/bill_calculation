@@ -106,21 +106,34 @@ class _HomeScreenState extends State<HomeScreen> {
       water: water,
     );
 
-    final amounts = BillCalculator.calculateAmount(units, bill);
-
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ResultScreen(
-          units: units,
-          amounts: amounts,
+          units: {
+            'A': units['A']!,
+            'B': units['B']!,
+            'C': units['C']!,
+          },
+          amounts: BillCalculator.calculateAmount(
+            {
+              'A': units['A']!,
+              'B': units['B']!,
+              'C': units['C']!,
+            },
+            bill,
+          ),
           totalUnits: bill.totalUnits,
           totalAmount: bill.totalAmount,
-          roomAElec: roomA.units,
-          roomBElec: roomB.units,
-          roomCElec:
-              bill.totalUnits - (roomA.units + roomB.units + water.units),
-          waterUnits: water.units,
+
+          // ✅ CORRECTED electricity
+          roomAElec: units['A_E']!,
+          roomBElec: units['B_E']!,
+          roomCElec: units['C_E']!,
+
+          // ✅ CORRECTED water
+          waterUnits: units['W_PP']! * 12,
+
           persons: {'A': personsA, 'B': personsB, 'C': personsC},
           billPreviousDate: prevBillDate!,
           billCurrentDate: currBillDate!,
